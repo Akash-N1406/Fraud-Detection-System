@@ -112,6 +112,18 @@ fraud-detection-system/
 └── README.md
 ```
 
+## Before You Start Working (each WSL session)
+
+HDFS daemons (NameNode, DataNode, SecondaryNameNode) do **not** persist across
+WSL sessions — a closed terminal, WSL restart, or Windows sleep/reboot kills
+them. Anything touching HDFS (Spark jobs, `hdfs dfs` commands) will fail with
+`Connection refused` on `localhost:9000` until you restart them:
+
+```bash
+start-dfs.sh
+jps   # confirm NameNode, DataNode, SecondaryNameNode are all listed
+```
+
 ## Setup (WSL2 / Ubuntu)
 
 ```bash
