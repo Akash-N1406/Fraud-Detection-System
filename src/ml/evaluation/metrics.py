@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import IsolationForest
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
@@ -22,17 +23,31 @@ from sklearn.metrics import (
 
 
 def evaluate_model(model, X_test, y_test, model_name: str) -> dict:
-    """Run predictions and compute the full metric set for one model."""
-    y_pred = model.predict(X_test)
+    """Run predictions and compute the full metric set for one model.
 
-    # predict_proba isn't available on every estimator (e.g. some anomaly
-    # detectors used from Phase 6 onward) — fall back gracefully
-    if hasattr(model, "predict_proba"):
-        y_score = model.predict_proba(X_test)[:, 1]
-    elif hasattr(model, "decision_function"):
-        y_score = model.decision_function(X_test)
+    Isolation Forest is a special case: predict() returns -1 (anomaly) / 1
+    (normal) instead of 0/1, and decision_function() runs the opposite
+    direction of a classifier's probability (higher = more normal, not more
+    fraud-like) — both are converted here so it plugs into the same
+    evaluation and comparison-table pipeline as the supervised models.
+    """
+    if isinstance(model, IsolationForest):
+        raw_pred = model.predict(X_test)
+        y_pred = (raw_pred == -1).astype(int)
+        # decision_function: higher = more normal, so negate to get
+        # higher = more anomalous/fraud-like, matching the other models'
+        # "higher score = more likely fraud" convention
+        y_score = -model.decision_function(X_test)
     else:
-        y_score = y_pred
+        y_pred = model.predict(X_test)
+        # predict_proba isn't available on every estimator — fall back
+        # gracefully
+        if hasattr(model, "predict_proba"):
+            y_score = model.predict_proba(X_test)[:, 1]
+        elif hasattr(model, "decision_function"):
+            y_score = model.decision_function(X_test)
+        else:
+            y_score = y_pred
 
     tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
 
@@ -66,7 +81,7 @@ def print_report(result: dict) -> None:
     print(f"  False Negatives: {result['false_negatives']:>8,}   True Positives:  {result['true_positives']:>6,}")
 
 
-def save_comparison_report(results: list[dict], output_path: Path) -> None:
+def save_comparison_report(results: list[dict], output_path: Path, title: str = "Model Comparison") -> None:
     """Write a markdown comparison table — one row per model — for the report."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -74,7 +89,7 @@ def save_comparison_report(results: list[dict], output_path: Path) -> None:
         ["model", "accuracy", "precision", "recall", "f1_score", "roc_auc", "pr_auc"]
     ]
 
-    lines = ["# Model Comparison — Phase 3 Baseline\n", df.to_markdown(index=False)]
+    lines = [f"# {title}\n", df.to_markdown(index=False)]
     output_path.write_text("\n".join(lines))
 
     json_path = output_path.with_suffix(".json")
