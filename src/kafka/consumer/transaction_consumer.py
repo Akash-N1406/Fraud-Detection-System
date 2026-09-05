@@ -1,13 +1,13 @@
 """
-Phase 8 — real-time ML pipeline (Kafka consumer + live scoring).
+Phase 9 — real-time ML pipeline with PostgreSQL persistence.
 Run from src/: python kafka/consumer/transaction_consumer.py
 
-Replaces Phase 7's placeholder process_transaction() with the actual
-trained Random Forest model from Phase 6: computes the same engineered
-features live, scores each transaction, and classifies risk per the SRS's
-scale. Prediction latency is measured against NFR-02's <2 second target.
+Extends Phase 8: every transaction, its prediction, and (if flagged) its
+alert are now written to PostgreSQL, giving Phase 11's dashboard real data
+to query instead of only console output.
 """
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -15,8 +15,12 @@ import joblib
 import pandas as pd
 from kafka import KafkaConsumer
 
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
+from database.db import get_connection, insert_transaction, insert_prediction, insert_alert
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 MODEL_PATH = PROJECT_ROOT / "src" / "ml" / "models" / "random_forest_tuned.pkl"
+MODEL_VERSION = "random_forest_tuned_v1"  # bump this if you retrain/replace the model
 
 TOPIC = "fraud-transactions"
 BOOTSTRAP_SERVERS = "localhost:9092"
@@ -125,6 +129,21 @@ def process_transaction(message: dict, model, expected_columns: list[str], stats
     is_flagged = fraud_probability > ALERT_THRESHOLD
 
     latency_ms = (time.perf_counter() - start) * 1000
+
+    # Persist to PostgreSQL. Errors here are logged but don't crash the
+    # consumer — a transient DB hiccup shouldn't take down the whole
+    # streaming pipeline; the message is still fully processed and printed.
+    try:
+        with get_connection() as conn:
+            insert_transaction(conn, message)
+            insert_prediction(
+                conn, message["transaction_id"], float(fraud_probability),
+                risk_level, MODEL_VERSION, latency_ms,
+            )
+            if is_flagged:
+                insert_alert(conn, message["transaction_id"], risk_level, float(fraud_probability))
+    except Exception as e:
+        print(f"  !! DB write failed for {message['transaction_id']}: {e}")
 
     actual_fraud = bool(message.get("isFraud"))
     stats.update(predicted_fraud=is_flagged, actual_fraud=actual_fraud, latency_ms=latency_ms)
