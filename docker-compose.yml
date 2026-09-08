@@ -1,0 +1,73 @@
+# Phase 12 — Docker Compose deployment.
+#
+# SCOPE: this containerizes PostgreSQL and the Django backend only.
+# Hadoop (HDFS), Kafka, and Spark continue running natively in WSL2
+# exactly as set up in Phases 4/5/7. That's a deliberate choice, not an
+# oversight: those services need to be reachable both from inside a
+# Docker network AND from host-side scripts (the Kafka producer/consumer,
+# Spark batch jobs) — correctly configuring that dual-access networking
+# (advertised.listeners, hostname resolution) is a meaningfully different
+# and riskier problem than containerizing a stateless web tier, and isn't
+# needed to get real reproducible-deployment value out of this phase.
+#
+# Usage:
+#   docker compose up --build
+#
+# This starts a FRESH, empty Postgres database (its own volume, separate
+# from your native Postgres instance with real streamed data) and applies
+# database/schema.sql automatically on first start. It's meant as a
+# reproducible "spin up the app tier from scratch" artifact — e.g. for
+# someone else cloning this repo — not as a replacement for your existing
+# native Postgres, which still has your real Phase 9 data and should stay
+# how you've been running it day to day.
+#
+# To load your existing data into this containerized Postgres instead of
+# starting fresh, dump it from the native instance and restore it here:
+#   pg_dump -U postgres frauddb > backup.sql
+#   docker compose exec -T postgres psql -U postgres frauddb < backup.sql
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-frauddb}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in your .env file}
+    ports:
+      - "5433:5432"  # host port 5433, not 5432 — avoids clashing with
+                       # your existing native PostgreSQL still running on
+                       # the default port
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  django:
+    build:
+      context: ./src/backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres        # service name, resolved via Docker's
+                                  # internal DNS — not localhost
+      DB_PORT: 5432             # container-internal port; the 5433
+                                  # remap above only affects host access
+      DB_NAME: ${DB_NAME:-frauddb}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in your .env file}
+    ports:
+      - "8001:8000"  # host port 8001, avoiding a clash if you still have
+                        # `python manage.py runserver` running natively on 8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./src/backend:/app  # bind-mount for live code reload during dev;
+                               # remove this for a real deployed image
+
+volumes:
+  postgres_data:
