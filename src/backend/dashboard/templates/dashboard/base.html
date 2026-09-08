@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>{% block title %}Fraud Detection Dashboard{% endblock %}</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, "Segoe UI", sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            margin: 0;
+        }
+
+        nav {
+            background: #1e293b;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        nav a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.95rem;
+        }
+
+        nav a.active,
+        nav a:hover {
+            color: #e2e8f0;
+        }
+
+        nav .brand {
+            font-weight: 600;
+            color: #e2e8f0;
+            margin-right: 1rem;
+        }
+
+        nav .spacer {
+            flex: 1;
+        }
+
+        main {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .kpi-card {
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 1.25rem;
+        }
+
+        .kpi-card .label {
+            color: #94a3b8;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+
+        .kpi-card .value {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-top: 0.25rem;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .chart-box {
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 1.25rem;
+        }
+
+        .chart-box h3 {
+            margin-top: 0;
+            font-size: 1rem;
+            color: #cbd5e1;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #1e293b;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th,
+        td {
+            padding: 0.6rem 1rem;
+            text-align: left;
+            font-size: 0.9rem;
+            border-bottom: 1px solid #334155;
+        }
+
+        th {
+            color: #94a3b8;
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+        }
+
+        .risk-Low {
+            color: #4ade80;
+        }
+
+        .risk-Medium {
+            color: #facc15;
+        }
+
+        .risk-High {
+            color: #fb923c;
+        }
+
+        .risk-Critical {
+            color: #f87171;
+            font-weight: 600;
+        }
+
+        select {
+            background: #0f172a;
+            color: #e2e8f0;
+            border: 1px solid #334155;
+            border-radius: 4px;
+            padding: 0.3rem;
+        }
+
+        .pager {
+            margin-top: 1rem;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .pager button {
+            background: #334155;
+            color: #e2e8f0;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pager button:disabled {
+            opacity: 0.4;
+            cursor: default;
+        }
+    </style>
+</head>
+
+<body>
+    <nav>
+        <span class="brand">Fraud Detection</span>
+        <a href="{% url 'dashboard-home' %}" class="{% block nav_home %}{% endblock %}">Dashboard</a>
+        <a href="{% url 'dashboard-transactions' %}" class="{% block nav_txns %}{% endblock %}">Transactions</a>
+        <a href="{% url 'dashboard-alerts' %}" class="{% block nav_alerts %}{% endblock %}">Alerts</a>
+        <a href="{% url 'dashboard-models' %}" class="{% block nav_models %}{% endblock %}">Models</a>
+        <span class="spacer"></span>
+        <span style="color:#64748b;font-size:0.85rem;">{{ user.username }}</span>
+        <form method="post" action="{% url 'logout' %}" style="margin:0;">
+            {% csrf_token %}
+            <button type="submit" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:0.9rem;">Log
+                out</button>
+        </form>
+    </nav>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <script>
+        // CSRF helper for fetch() POST/PATCH calls to the DRF API, which
+        // shares this session's login (SessionAuthentication in Phase 10)
+        function getCookie(name) {
+            const match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+            return match ? match.pop() : '';
+        }
+        window.csrfToken = getCookie('csrftoken');
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

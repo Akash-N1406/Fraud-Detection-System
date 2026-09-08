@@ -1,0 +1,58 @@
+{% extends "dashboard/base.html" %}
+{% block nav_txns %}active{% endblock %}
+{% block content %}
+<h2 style="margin-top:0;">Real-Time Transactions</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Transaction ID</th>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Received</th>
+            <th>Actual Fraud</th>
+        </tr>
+    </thead>
+    <tbody id="txn-body"></tbody>
+</table>
+<div class="pager">
+    <button id="prev-btn" disabled>&larr; Newer</button>
+    <span id="page-info"></span>
+    <button id="next-btn">Older &rarr;</button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let nextUrl = "/api/transactions/";
+let prevUrl = null;
+
+async function loadPage(url) {
+    const res = await fetch(url, { credentials: "same-origin" });
+    const data = await res.json();
+    const body = document.getElementById("txn-body");
+    body.innerHTML = data.results.map(t => `
+        <tr>
+            <td>${t.transaction_id}</td>
+            <td>${t.type}</td>
+            <td>$${Number(t.amount).toLocaleString()}</td>
+            <td>${new Date(t.received_at).toLocaleString()}</td>
+            <td>${t.is_fraud_actual ? "Yes" : "—"}</td>
+        </tr>
+    `).join("");
+    nextUrl = data.next;
+    prevUrl = data.previous;
+    document.getElementById("next-btn").disabled = !nextUrl;
+    document.getElementById("prev-btn").disabled = !prevUrl;
+    document.getElementById("page-info").textContent = `${data.count.toLocaleString()} total transactions`;
+}
+
+document.getElementById("next-btn").onclick = () => nextUrl && loadPage(nextUrl);
+document.getElementById("prev-btn").onclick = () => prevUrl && loadPage(prevUrl);
+
+loadPage(nextUrl);
+// Auto-refresh the first page every 5s to feel "real-time" without a
+// websocket — good enough for a dashboard demo, matches the SRS's
+// "real-time monitoring" table without adding streaming infrastructure here
+setInterval(() => { if (!prevUrl) loadPage("/api/transactions/"); }, 5000);
+</script>
+{% endblock %}

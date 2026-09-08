@@ -1,0 +1,55 @@
+{% extends "dashboard/base.html" %}
+{% block nav_alerts %}active{% endblock %}
+{% block content %}
+<h2 style="margin-top:0;">Fraud Alerts</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Transaction ID</th>
+            <th>Amount</th>
+            <th>Alert Level</th>
+            <th>Fraud Probability</th>
+            <th>Status</th>
+            <th>Created</th>
+        </tr>
+    </thead>
+    <tbody id="alerts-body"></tbody>
+</table>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const STATUSES = ["New", "Under Investigation", "Confirmed Fraud", "False Positive", "Resolved"];
+
+async function loadAlerts() {
+    const res = await fetch("/api/alerts/", { credentials: "same-origin" });
+    const data = await res.json();
+    document.getElementById("alerts-body").innerHTML = data.results.map(a => `
+        <tr>
+            <td>${a.transaction_id}</td>
+            <td>$${Number(a.amount).toLocaleString()}</td>
+            <td class="risk-${a.alert_level}">${a.alert_level}</td>
+            <td>${(a.fraud_probability * 100).toFixed(1)}%</td>
+            <td>
+                <select data-id="${a.id}" onchange="updateStatus(this)">
+                    ${STATUSES.map(s => `<option value="${s}" ${s === a.status ? "selected" : ""}>${s}</option>`).join("")}
+                </select>
+            </td>
+            <td>${new Date(a.created_at).toLocaleString()}</td>
+        </tr>
+    `).join("");
+}
+
+async function updateStatus(select) {
+    const id = select.dataset.id;
+    await fetch(`/api/alerts/${id}/`, {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": window.csrfToken },
+        body: JSON.stringify({ status: select.value }),
+    });
+}
+
+loadAlerts();
+</script>
+{% endblock %}

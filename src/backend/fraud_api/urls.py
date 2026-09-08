@@ -14,4 +14,8 @@ router.register(r"model-metrics", views.ModelMetricViewSet, basename="model-metr
 urlpatterns = [
     path("", include(router.urls)),
     path("dashboard/kpis/", views.DashboardKPIView.as_view(), name="dashboard-kpis"),
+    path("dashboard/fraud-by-type/", views.FraudByTypeView.as_view(), name="dashboard-fraud-by-type"),
+    path("dashboard/hourly-pattern/", views.HourlyPatternView.as_view(), name="dashboard-hourly-pattern"),
+    path("dashboard/risk-distribution/", views.RiskDistributionView.as_view(), name="dashboard-risk-distribution"),
+    path("dashboard/amount-distribution/", views.AmountDistributionView.as_view(), name="dashboard-amount-distribution"),
 ]

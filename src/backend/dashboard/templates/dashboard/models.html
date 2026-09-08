@@ -1,0 +1,60 @@
+{% extends "dashboard/base.html" %}
+{% block nav_models %}active{% endblock %}
+{% block content %}
+<h2 style="margin-top:0;">Model Performance Comparison</h2>
+<div class="chart-box" style="margin-bottom:1.5rem;"><canvas id="chart-models"></canvas></div>
+<table>
+    <thead>
+        <tr>
+            <th>Model</th>
+            <th>Accuracy</th>
+            <th>Precision</th>
+            <th>Recall</th>
+            <th>F1</th>
+            <th>ROC-AUC</th>
+            <th>PR-AUC</th>
+        </tr>
+    </thead>
+    <tbody id="models-body"></tbody>
+</table>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadModels() {
+    const res = await fetch("/api/model-metrics/", { credentials: "same-origin" });
+    const data = (await res.json()).results;
+
+    document.getElementById("models-body").innerHTML = data.map(m => `
+        <tr>
+            <td>${m.model_name}</td>
+            <td>${(m.accuracy * 100).toFixed(2)}%</td>
+            <td>${(m.precision_score * 100).toFixed(2)}%</td>
+            <td>${(m.recall_score * 100).toFixed(2)}%</td>
+            <td>${(m.f1_score * 100).toFixed(2)}%</td>
+            <td>${(m.roc_auc * 100).toFixed(2)}%</td>
+            <td>${(m.pr_auc * 100).toFixed(2)}%</td>
+        </tr>
+    `).join("");
+
+    new Chart(document.getElementById("chart-models"), {
+        type: "bar",
+        data: {
+            labels: data.map(m => m.model_name),
+            datasets: [
+                { label: "F1 Score", data: data.map(m => m.f1_score), backgroundColor: "#3b82f6" },
+                { label: "PR-AUC", data: data.map(m => m.pr_auc), backgroundColor: "#4ade80" },
+            ],
+        },
+        options: {
+            plugins: { legend: { labels: { color: "#94a3b8" } } },
+            scales: {
+                x: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" } },
+                y: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" }, beginAtZero: true, max: 1 },
+            },
+        },
+    });
+}
+loadModels();
+</script>
+{% endblock %}
