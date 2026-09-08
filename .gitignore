@@ -2,11 +2,20 @@ venv/
 __pycache__/
 *.pyc
 .env
+
 data/raw/*
 !data/raw/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+data/features/*
+!data/features/.gitkeep
+
 src/ml/models/*.pkl
 *.log
+
 .ipynb_checkpoints/
+
+# Django
 db.sqlite3
+staticfiles/
+src/backend/db.sqlite3
